@@ -11,6 +11,19 @@ from .exceptions import ValidationError
 
 logger = logging.getLogger(__name__)
 
+# iA4UP Security: liste étendue des fonctions Excel dangereuses
+# Ces fonctions peuvent exécuter du code, accéder au réseau ou au système
+UNSAFE_FUNCTIONS = {
+    # Original haris-musa
+    "INDIRECT", "HYPERLINK", "WEBSERVICE", "DGET", "RTD",
+    # iA4UP additions — exécution de code et accès système
+    "CALL",           # Appelle des DLL externes
+    "REGISTER",       # Enregistre des DLL
+    "EXEC",           # Exécution de commandes
+    "FILTERXML",      # Parsing XML externe (peut fuiter des données)
+    "REGISTER.ID",    # Variante de REGISTER
+}
+
 def validate_formula_in_cell_operation(
     filepath: str,
     sheet_name: str,
@@ -163,16 +176,20 @@ def validate_range_in_sheet_operation(
         raise ValidationError(str(e))
 
 def validate_formula(formula: str) -> tuple[bool, str]:
-    """Validate Excel formula syntax and safety"""
+    """Validate Excel formula syntax and safety.
+    
+    iA4UP Security: extended unsafe function list including
+    CALL, REGISTER, EXEC, FILTERXML, REGISTER.ID
+    """
     if not formula.startswith("="):
         return False, "Formula must start with '='"
 
     # Remove the '=' prefix for validation
-    formula = formula[1:]
+    formula_body = formula[1:]
 
     # Check for balanced parentheses
     parens = 0
-    for c in formula:
+    for c in formula_body:
         if c == "(":
             parens += 1
         elif c == ")":
@@ -183,14 +200,13 @@ def validate_formula(formula: str) -> tuple[bool, str]:
     if parens > 0:
         return False, "Unclosed parenthesis"
 
-    # Basic function name validation
-    func_pattern = r"([A-Z]+)\("
-    funcs = re.findall(func_pattern, formula)
-    unsafe_funcs = {"INDIRECT", "HYPERLINK", "WEBSERVICE", "DGET", "RTD"}
+    # iA4UP Security: check for unsafe functions (case-insensitive)
+    func_pattern = r"([A-Z][A-Z0-9.]+)\("
+    funcs = re.findall(func_pattern, formula_body, re.IGNORECASE)
 
     for func in funcs:
-        if func in unsafe_funcs:
-            return False, f"Unsafe function: {func}"
+        if func.upper() in UNSAFE_FUNCTIONS:
+            return False, f"Unsafe function blocked (iA4UP Security): {func.upper()}"
 
     return True, "Formula is valid"
 

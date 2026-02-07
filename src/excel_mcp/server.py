@@ -17,6 +17,9 @@ from excel_mcp.exceptions import (
     ChartError
 )
 
+# iA4UP Security: import sandbox
+from excel_mcp.sandbox import validate_file_path, SandboxError
+
 # Import from excel_mcp package with consistent _impl suffixes
 from excel_mcp.validation import (
     validate_formula_in_cell_operation as validate_formula_impl,
@@ -41,12 +44,6 @@ from excel_mcp.sheet import (
 )
 
 # Get project root directory path for log file path.
-# When using the stdio transmission method,
-# relative paths may cause log files to fail to create
-# due to the client's running location and permission issues,
-# resulting in the program not being able to run.
-# Thus using os.path.join(ROOT_DIR, "excel-mcp.log") instead.
-
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 LOG_FILE = os.path.join(ROOT_DIR, "excel-mcp.log")
 
@@ -58,40 +55,50 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        # Referring to https://github.com/modelcontextprotocol/python-sdk/issues/409#issuecomment-2816831318
-        # The stdio mode server MUST NOT write anything to its stdout that is not a valid MCP message.
         logging.FileHandler(LOG_FILE)
     ],
 )
 logger = logging.getLogger("excel-mcp")
+
 # Initialize FastMCP server
 mcp = FastMCP(
-    "excel-mcp",
+    "iA4UP Excel MCP Secure",
     host=os.environ.get("FASTMCP_HOST", "0.0.0.0"),
     port=int(os.environ.get("FASTMCP_PORT", "8017")),
-    instructions="Excel MCP Server for manipulating Excel files"
+    instructions="iA4UP Secure Excel MCP Server — sandboxed, offline, no telemetry"
 )
 
 def get_excel_path(filename: str) -> str:
-    """Get full path to Excel file.
+    """Get full path to Excel file with iA4UP sandbox validation.
+    
+    All 25 tools pass through this function. Security checks:
+    1. Path resolution (absolute or relative to EXCEL_FILES_PATH)
+    2. Sandbox validation (ALLOWED_PATHS, anti path-traversal, .xlsx only)
     
     Args:
-        filename: Name of Excel file
+        filename: Name or path of Excel file
         
     Returns:
-        Full path to Excel file
+        Full validated path to Excel file
+        
+    Raises:
+        SandboxError: If path fails security validation
+        ValueError: If path cannot be resolved
     """
-    # If filename is already an absolute path, return it
+    # Resolve the path
     if os.path.isabs(filename):
-        return filename
+        full_path = filename
+    elif EXCEL_FILES_PATH is not None:
+        full_path = os.path.join(EXCEL_FILES_PATH, filename)
+    else:
+        raise ValueError(
+            f"Invalid filename: {filename}, must be an absolute path when not in SSE mode"
+        )
+    
+    # iA4UP Security: validate through sandbox
+    validated_path = validate_file_path(full_path)
+    return validated_path
 
-    # Check if in SSE mode (EXCEL_FILES_PATH is not None)
-    if EXCEL_FILES_PATH is None:
-        # Must use absolute path
-        raise ValueError(f"Invalid filename: {filename}, must be an absolute path when not in SSE mode")
-
-    # In SSE mode, if it's a relative path, resolve it based on EXCEL_FILES_PATH
-    return os.path.join(EXCEL_FILES_PATH, filename)
 
 @mcp.tool(
     annotations=ToolAnnotations(
@@ -120,7 +127,7 @@ def apply_formula(
         from excel_mcp.calculations import apply_formula as apply_formula_impl
         result = apply_formula_impl(full_path, sheet_name, cell, formula)
         return result["message"]
-    except (ValidationError, CalculationError) as e:
+    except (ValidationError, CalculationError, SandboxError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error applying formula: {e}")
@@ -143,7 +150,7 @@ def validate_formula_syntax(
         full_path = get_excel_path(filepath)
         result = validate_formula_impl(full_path, sheet_name, cell, formula)
         return result["message"]
-    except (ValidationError, CalculationError) as e:
+    except (ValidationError, CalculationError, SandboxError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error validating formula: {e}")
@@ -180,29 +187,28 @@ def format_range(
         full_path = get_excel_path(filepath)
         from excel_mcp.formatting import format_range as format_range_func
         
-        # Convert None values to appropriate defaults for the underlying function
         format_range_func(
             filepath=full_path,
             sheet_name=sheet_name,
             start_cell=start_cell,
-            end_cell=end_cell,  # This can be None
+            end_cell=end_cell,
             bold=bold,
             italic=italic,
             underline=underline,
-            font_size=font_size,  # This can be None
-            font_color=font_color,  # This can be None
-            bg_color=bg_color,  # This can be None
-            border_style=border_style,  # This can be None
-            border_color=border_color,  # This can be None
-            number_format=number_format,  # This can be None
-            alignment=alignment,  # This can be None
+            font_size=font_size,
+            font_color=font_color,
+            bg_color=bg_color,
+            border_style=border_style,
+            border_color=border_color,
+            number_format=number_format,
+            alignment=alignment,
             wrap_text=wrap_text,
             merge_cells=merge_cells,
-            protection=protection,  # This can be None
-            conditional_format=conditional_format  # This can be None
+            protection=protection,
+            conditional_format=conditional_format
         )
         return "Range formatted successfully"
-    except (ValidationError, FormattingError) as e:
+    except (ValidationError, FormattingError, SandboxError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error formatting range: {e}")
@@ -247,10 +253,11 @@ def read_data_from_excel(
         if not result or not result.get("cells"):
             return "No data found in specified range"
             
-        # Return as formatted JSON string
         import json
         return json.dumps(result, indent=2, default=str)
         
+    except SandboxError as e:
+        return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error reading data: {e}")
         raise
@@ -276,13 +283,12 @@ def write_data_to_excel(
     sheet_name: Name of worksheet to write to
     data: List of lists containing data to write to the worksheet, sublists are assumed to be rows
     start_cell: Cell to start writing to, default is "A1"
-  
     """
     try:
         full_path = get_excel_path(filepath)
         result = write_data(full_path, sheet_name, data, start_cell)
         return result["message"]
-    except (ValidationError, DataError) as e:
+    except (ValidationError, DataError, SandboxError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error writing data: {e}")
@@ -301,7 +307,7 @@ def create_workbook(filepath: str) -> str:
         from excel_mcp.workbook import create_workbook as create_workbook_impl
         create_workbook_impl(full_path)
         return f"Created workbook at {full_path}"
-    except WorkbookError as e:
+    except (WorkbookError, SandboxError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error creating workbook: {e}")
@@ -320,7 +326,7 @@ def create_worksheet(filepath: str, sheet_name: str) -> str:
         from excel_mcp.workbook import create_sheet as create_worksheet_impl
         result = create_worksheet_impl(full_path, sheet_name)
         return result["message"]
-    except (ValidationError, WorkbookError) as e:
+    except (ValidationError, WorkbookError, SandboxError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error creating worksheet: {e}")
@@ -356,7 +362,7 @@ def create_chart(
             y_axis=y_axis
         )
         return result["message"]
-    except (ValidationError, ChartError) as e:
+    except (ValidationError, ChartError, SandboxError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error creating chart: {e}")
@@ -390,7 +396,7 @@ def create_pivot_table(
             agg_func=agg_func
         )
         return result["message"]
-    except (ValidationError, PivotError) as e:
+    except (ValidationError, PivotError, SandboxError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error creating pivot table: {e}")
@@ -420,7 +426,7 @@ def create_table(
             table_style=table_style
         )
         return result["message"]
-    except DataError as e:
+    except (DataError, SandboxError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error creating table: {e}")
@@ -442,7 +448,7 @@ def copy_worksheet(
         full_path = get_excel_path(filepath)
         result = copy_sheet(full_path, source_sheet, target_sheet)
         return result["message"]
-    except (ValidationError, SheetError) as e:
+    except (ValidationError, SheetError, SandboxError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error copying worksheet: {e}")
@@ -463,7 +469,7 @@ def delete_worksheet(
         full_path = get_excel_path(filepath)
         result = delete_sheet(full_path, sheet_name)
         return result["message"]
-    except (ValidationError, SheetError) as e:
+    except (ValidationError, SheetError, SandboxError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error deleting worksheet: {e}")
@@ -485,7 +491,7 @@ def rename_worksheet(
         full_path = get_excel_path(filepath)
         result = rename_sheet(full_path, old_name, new_name)
         return result["message"]
-    except (ValidationError, SheetError) as e:
+    except (ValidationError, SheetError, SandboxError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error renaming worksheet: {e}")
@@ -506,7 +512,7 @@ def get_workbook_metadata(
         full_path = get_excel_path(filepath)
         result = get_workbook_info(full_path, include_ranges=include_ranges)
         return str(result)
-    except WorkbookError as e:
+    except (WorkbookError, SandboxError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error getting workbook metadata: {e}")
@@ -524,7 +530,7 @@ def merge_cells(filepath: str, sheet_name: str, start_cell: str, end_cell: str) 
         full_path = get_excel_path(filepath)
         result = merge_range(full_path, sheet_name, start_cell, end_cell)
         return result["message"]
-    except (ValidationError, SheetError) as e:
+    except (ValidationError, SheetError, SandboxError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error merging cells: {e}")
@@ -542,7 +548,7 @@ def unmerge_cells(filepath: str, sheet_name: str, start_cell: str, end_cell: str
         full_path = get_excel_path(filepath)
         result = unmerge_range(full_path, sheet_name, start_cell, end_cell)
         return result["message"]
-    except (ValidationError, SheetError) as e:
+    except (ValidationError, SheetError, SandboxError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error unmerging cells: {e}")
@@ -559,7 +565,7 @@ def get_merged_cells(filepath: str, sheet_name: str) -> str:
     try:
         full_path = get_excel_path(filepath)
         return str(get_merged_ranges(full_path, sheet_name))
-    except (ValidationError, SheetError) as e:
+    except (ValidationError, SheetError, SandboxError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error getting merged cells: {e}")
@@ -589,10 +595,10 @@ def copy_range(
             source_start,
             source_end,
             target_start,
-            target_sheet or sheet_name  # Use source sheet if target_sheet is None
+            target_sheet or sheet_name
         )
         return result["message"]
-    except (ValidationError, SheetError) as e:
+    except (ValidationError, SheetError, SandboxError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error copying range: {e}")
@@ -623,7 +629,7 @@ def delete_range(
             shift_direction
         )
         return result["message"]
-    except (ValidationError, SheetError) as e:
+    except (ValidationError, SheetError, SandboxError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error deleting range: {e}")
@@ -647,7 +653,7 @@ def validate_excel_range(
         range_str = start_cell if not end_cell else f"{start_cell}:{end_cell}"
         result = validate_range_impl(full_path, sheet_name, range_str)
         return result["message"]
-    except ValidationError as e:
+    except (ValidationError, SandboxError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error validating range: {e}")
@@ -665,9 +671,6 @@ def get_data_validation_info(
 ) -> str:
     """
     Get all data validation rules in a worksheet.
-    
-    This tool helps identify which cell ranges have validation rules
-    and what types of validation are applied.
     
     Args:
         filepath: Path to Excel file
@@ -698,6 +701,8 @@ def get_data_validation_info(
             "validation_rules": validations
         }, indent=2, default=str)
         
+    except SandboxError as e:
+        return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error getting validation info: {e}")
         raise
@@ -719,7 +724,7 @@ def insert_rows(
         full_path = get_excel_path(filepath)
         result = insert_row(full_path, sheet_name, start_row, count)
         return result["message"]
-    except (ValidationError, SheetError) as e:
+    except (ValidationError, SheetError, SandboxError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error inserting rows: {e}")
@@ -742,7 +747,7 @@ def insert_columns(
         full_path = get_excel_path(filepath)
         result = insert_cols(full_path, sheet_name, start_col, count)
         return result["message"]
-    except (ValidationError, SheetError) as e:
+    except (ValidationError, SheetError, SandboxError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error inserting columns: {e}")
@@ -765,7 +770,7 @@ def delete_sheet_rows(
         full_path = get_excel_path(filepath)
         result = delete_rows(full_path, sheet_name, start_row, count)
         return result["message"]
-    except (ValidationError, SheetError) as e:
+    except (ValidationError, SheetError, SandboxError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error deleting rows: {e}")
@@ -788,7 +793,7 @@ def delete_sheet_columns(
         full_path = get_excel_path(filepath)
         result = delete_cols(full_path, sheet_name, start_col, count)
         return result["message"]
-    except (ValidationError, SheetError) as e:
+    except (ValidationError, SheetError, SandboxError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error deleting columns: {e}")
@@ -796,14 +801,12 @@ def delete_sheet_columns(
 
 def run_sse():
     """Run Excel MCP server in SSE mode."""
-    # Assign value to EXCEL_FILES_PATH in SSE mode
     global EXCEL_FILES_PATH
     EXCEL_FILES_PATH = os.environ.get("EXCEL_FILES_PATH", "./excel_files")
-    # Create directory if it doesn't exist
     os.makedirs(EXCEL_FILES_PATH, exist_ok=True)
     
     try:
-        logger.info(f"Starting Excel MCP server with SSE transport (files directory: {EXCEL_FILES_PATH})")
+        logger.info(f"Starting iA4UP Secure Excel MCP server with SSE transport (files directory: {EXCEL_FILES_PATH})")
         mcp.run(transport="sse")
     except KeyboardInterrupt:
         logger.info("Server stopped by user")
@@ -815,14 +818,12 @@ def run_sse():
 
 def run_streamable_http():
     """Run Excel MCP server in streamable HTTP mode."""
-    # Assign value to EXCEL_FILES_PATH in streamable HTTP mode
     global EXCEL_FILES_PATH
     EXCEL_FILES_PATH = os.environ.get("EXCEL_FILES_PATH", "./excel_files")
-    # Create directory if it doesn't exist
     os.makedirs(EXCEL_FILES_PATH, exist_ok=True)
     
     try:
-        logger.info(f"Starting Excel MCP server with streamable HTTP transport (files directory: {EXCEL_FILES_PATH})")
+        logger.info(f"Starting iA4UP Secure Excel MCP server with streamable HTTP transport (files directory: {EXCEL_FILES_PATH})")
         mcp.run(transport="streamable-http")
     except KeyboardInterrupt:
         logger.info("Server stopped by user")
@@ -834,10 +835,8 @@ def run_streamable_http():
 
 def run_stdio():
     """Run Excel MCP server in stdio mode."""
-    # No need to assign EXCEL_FILES_PATH in stdio mode
-    
     try:
-        logger.info("Starting Excel MCP server with stdio transport")
+        logger.info("Starting iA4UP Secure Excel MCP server with stdio transport")
         mcp.run(transport="stdio")
     except KeyboardInterrupt:
         logger.info("Server stopped by user")

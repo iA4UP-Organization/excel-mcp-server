@@ -118,6 +118,18 @@ Fonctions bloquées : `CALL`, `REGISTER`, `REGISTER.ID`, `EXEC`, `INDIRECT`, `HY
 - Aucun import réseau dans le code applicatif
 - Pas de Smithery, pas de marketplace, pas de télémétrie
 
+### Tests de sécurité validés ✅
+
+| Test | Résultat | Message |
+|------|----------|---------|
+| Path traversal (`/tmp/hack.xlsx`) | 🛡️ BLOQUÉ | `Accès refusé : n'est pas dans les répertoires autorisés` |
+| Extension `.csv` | 🛡️ BLOQUÉ | `Extension non autorisée. Seuls les fichiers .xlsx sont acceptés` |
+| Formule `=CALL("kernel32",...)` | 🛡️ BLOQUÉ | `Unsafe function blocked (iA4UP Security): CALL` |
+| Formule `=SUM(B2:B4)` | ✅ ACCEPTÉ | Formule appliquée normalement |
+| Création workbook | ✅ OK | Fichier créé dans le sandbox |
+| Écriture données | ✅ OK | Données écrites correctement |
+| Création chart bar | ✅ OK | Graphique créé avec succès |
+
 ---
 
 ## 🛠️ Outils Disponibles (25 tools)
@@ -168,6 +180,11 @@ Fichier : `%APPDATA%\Claude\claude_desktop_config.json`
 **Note** : Adapter `ALLOWED_PATHS` pour pointer vers les vrais dossiers de travail en production :
 - `/mnt/g/Mon Drive/iA4UP` pour les fichiers iA4UP
 - `/mnt/g/Mon Drive/Savpro` pour les fichiers Savpro
+
+### Claude.ai (via connecteur MCP)
+
+Le serveur excel apparaît comme connecteur activable dans claude.ai grâce à Claude Desktop.
+25 outils disponibles directement dans l'interface web.
 
 ### N8N sur VPS Hostinger (SSE ou HTTP)
 
@@ -232,17 +249,22 @@ dependencies = [
 - [x] Suppression assets/logo.png et logo.svg (logos auteur)
 - [x] Réécriture README.md (version iA4UP)
 
-### Phase 2 : Installation & Tests 🔄 EN COURS
+### Phase 2 : Installation & Tests ✅ TERMINÉE
 - [x] Cloner le repo en local (`/home/depre/workspace/excel-mcp-server`)
 - [x] Installer pip3 sur WSL Ubuntu
 - [x] Installer avec `pip3 install -e . --break-system-packages`
 - [x] Ajouter `~/.local/bin` au PATH (`.bashrc`)
 - [x] Vérifier `excel-mcp-server --help` — 3 modes confirmés (stdio, sse, streamable-http)
-- [x] Tester lancement `ALLOWED_PATHS=... excel-mcp-server stdio` — OK, pas d'erreur
-- [ ] Configurer Claude Desktop (`claude_desktop_config.json` via WSL)
-- [ ] Tester connexion Claude Desktop ↔ serveur Excel MCP
-- [ ] Valider les 25 outils (créer workbook, lire/écrire données, formules, charts...)
-- [ ] Tests sécurité : path traversal bloqué, extension .xlsx obligatoire, formules dangereuses bloquées
+- [x] Tester lancement `ALLOWED_PATHS=... excel-mcp-server stdio` — OK
+- [x] Configurer Claude Desktop (`claude_desktop_config.json` via WSL)
+- [x] Connexion Claude Desktop ↔ serveur Excel MCP — **connecteur actif**
+- [x] Test création workbook — OK
+- [x] Test écriture données — OK
+- [x] Test formule SUM — OK
+- [x] Test chart bar — OK
+- [x] Test sécurité path traversal — BLOQUÉ ✅
+- [x] Test sécurité extension .csv — BLOQUÉ ✅
+- [x] Test sécurité formule CALL — BLOQUÉ ✅
 
 ### Phase 3 : Dockerisation & Déploiement ⏳ À FAIRE
 - [ ] Dockerfile + docker-compose.yml
@@ -262,8 +284,8 @@ dependencies = [
 | 08/02/2025 | Greffe sécurité : config.py + sandbox.py + server.py + validation.py |
 | 08/02/2025 | Création CLAUDE.md — **Phase 1 terminée** |
 | 08/02/2025 | Nettoyage cosmétique : docs/, assets/, README.md réécrit — **Phase 1b terminée** |
-| 08/02/2025 | Clone local WSL + pip3 install + PATH configuré — **Phase 2 démarrée** |
-| 08/02/2025 | Serveur testé en stdio — configuration Claude Desktop en cours |
+| 08/02/2025 | Clone local WSL + pip3 install + PATH configuré |
+| 08/02/2025 | Serveur testé stdio + connecté Claude Desktop + tests sécurité 7/7 — **Phase 2 terminée** |
 
 ---
 

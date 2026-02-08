@@ -1,114 +1,78 @@
-<p align="center">
-  <img src="https://raw.githubusercontent.com/haris-musa/excel-mcp-server/main/assets/logo.png" alt="Excel MCP Server Logo" width="300"/>
-</p>
+# 🛡️ Excel MCP Server Secure — iA4UP
 
-[![PyPI version](https://img.shields.io/pypi/v/excel-mcp-server.svg)](https://pypi.org/project/excel-mcp-server/)
-[![Total Downloads](https://static.pepy.tech/badge/excel-mcp-server)](https://pepy.tech/project/excel-mcp-server)
+> Fork sécurisé de [haris-musa/excel-mcp-server](https://github.com/haris-musa/excel-mcp-server)
+> Manipulation de fichiers Excel (.xlsx) via le protocole MCP — sans cloud, sans télémétrie.
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![smithery badge](https://smithery.ai/badge/@haris-musa/excel-mcp-server)](https://smithery.ai/server/@haris-musa/excel-mcp-server)
-[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/install-mcp?name=excel-mcp-server&config=eyJjb21tYW5kIjoidXZ4IGV4Y2VsLW1jcC1zZXJ2ZXIgc3RkaW8ifQ%3D%3D)
+[![Fork of](https://img.shields.io/badge/fork%20of-haris--musa%2Fexcel--mcp--server-blue)](https://github.com/haris-musa/excel-mcp-server)
 
-A Model Context Protocol (MCP) server that lets you manipulate Excel files without needing Microsoft Excel installed. Create, read, and modify Excel workbooks with your AI agent.
+---
 
-## Features
+## Fonctionnalités
 
-- 📊 **Excel Operations**: Create, read, update workbooks and worksheets
-- 📈 **Data Manipulation**: Formulas, formatting, charts, pivot tables, and Excel tables
-- 🔍 **Data Validation**: Built-in validation for ranges, formulas, and data integrity
-- 🎨 **Formatting**: Font styling, colors, borders, alignment, and conditional formatting
-- 📋 **Table Operations**: Create and manage Excel tables with custom styling
-- 📊 **Chart Creation**: Generate various chart types (line, bar, pie, scatter, etc.)
-- 🔄 **Pivot Tables**: Create dynamic pivot tables for data analysis
-- 🔧 **Sheet Management**: Copy, rename, delete worksheets with ease
-- 🔌 **Triple transport support**: stdio, SSE (deprecated), and streamable HTTP
-- 🌐 **Remote & Local**: Works both locally and as a remote service
+- **25 outils** : workbooks, sheets, data, formules, charts, pivot tables, tables Excel, formatting conditionnel
+- **3 modes de transport** : stdio, SSE, streamable HTTP
+- **Sécurité renforcée (iA4UP)** :
+  - Sandboxing des chemins via `ALLOWED_PATHS`
+  - Anti path-traversal (`../`, `~`, liens symboliques)
+  - Extension `.xlsx` obligatoire
+  - Blocage des formules dangereuses (CALL, REGISTER, EXEC, WEBSERVICE, FILTERXML...)
+  - Zéro réseau, zéro télémétrie
 
-## Usage
-
-The server supports three transport methods:
-
-### 1. Stdio Transport (for local use)
+## Installation
 
 ```bash
+# Depuis PyPI (base upstream)
 uvx excel-mcp-server stdio
+
+# Depuis ce fork (développement local)
+git clone https://github.com/iA4UP-Organization/excel-mcp-server.git
+cd excel-mcp-server
+pip install -e .
+excel-mcp-server stdio
 ```
+
+## Configuration
+
+### Claude Desktop (stdio)
 
 ```json
 {
-   "mcpServers": {
-      "excel": {
-         "command": "uvx",
-         "args": ["excel-mcp-server", "stdio"]
+  "mcpServers": {
+    "excel": {
+      "command": "uvx",
+      "args": ["excel-mcp-server", "stdio"],
+      "env": {
+        "ALLOWED_PATHS": "G:/Mon Drive/iA4UP,G:/Mon Drive/Savpro"
       }
-   }
+    }
+  }
 }
 ```
 
-### 2. SSE Transport (Server-Sent Events - Deprecated)
+### Variables d'environnement
 
-```bash
-uvx excel-mcp-server sse
-```
+| Variable | Description | Requis |
+|----------|-------------|--------|
+| `ALLOWED_PATHS` | Répertoires autorisés (séparés par virgules) | **Oui** |
+| `EXCEL_FILES_PATH` | Répertoire par défaut pour SSE/HTTP | SSE/HTTP uniquement |
+| `FASTMCP_PORT` | Port du serveur (défaut: 8017) | Non |
 
-**SSE transport connection**:
-```json
-{
-   "mcpServers": {
-      "excel": {
-         "url": "http://localhost:8000/sse",
-      }
-   }
-}
-```
+## Sécurité
 
-### 3. Streamable HTTP Transport (Recommended for remote connections)
+Ce fork ajoute 3 couches de sécurité par rapport à l'upstream :
 
-```bash
-uvx excel-mcp-server streamable-http
-```
+1. **Sandboxing** — Tout accès fichier est restreint aux `ALLOWED_PATHS`
+2. **Formules dangereuses** — 11 fonctions Excel bloquées (CALL, REGISTER, EXEC, etc.)
+3. **Zéro réseau** — Aucune dépendance cloud, pas de Smithery, pas de marketplace
 
-**Streamable HTTP transport connection**:
-```json
-{
-   "mcpServers": {
-      "excel": {
-         "url": "http://localhost:8000/mcp",
-      }
-   }
-}
-```
+Voir [CLAUDE.md](CLAUDE.md) pour la documentation technique complète.
 
-## Environment Variables & File Path Handling
+## Crédits
 
-### SSE and Streamable HTTP Transports
+- **Upstream** : [haris-musa/excel-mcp-server](https://github.com/haris-musa/excel-mcp-server) — Merci pour l'excellent travail de base
+- **Fork sécurisé** : [iA4UP-Organization](https://github.com/iA4UP-Organization)
 
-When running the server with the **SSE or Streamable HTTP protocols**, you **must set the `EXCEL_FILES_PATH` environment variable on the server side**. This variable tells the server where to read and write Excel files.
-- If not set, it defaults to `./excel_files`.
+## Licence
 
-You can also set the `FASTMCP_PORT` environment variable to control the port the server listens on (default is `8017` if not set).
-- Example (Windows PowerShell):
-  ```powershell
-  $env:EXCEL_FILES_PATH="E:\MyExcelFiles"
-  $env:FASTMCP_PORT="8007"
-  uvx excel-mcp-server streamable-http
-  ```
-- Example (Linux/macOS):
-  ```bash
-  EXCEL_FILES_PATH=/path/to/excel_files FASTMCP_PORT=8007 uvx excel-mcp-server streamable-http
-  ```
-
-### Stdio Transport
-
-When using the **stdio protocol**, the file path is provided with each tool call, so you do **not** need to set `EXCEL_FILES_PATH` on the server. The server will use the path sent by the client for each operation.
-
-## Available Tools
-
-The server provides a comprehensive set of Excel manipulation tools. See [TOOLS.md](TOOLS.md) for complete documentation of all available tools.
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=haris-musa/excel-mcp-server&type=Date)](https://www.star-history.com/#haris-musa/excel-mcp-server&Date)
-
-## License
-
-MIT License - see [LICENSE](LICENSE) for details.
+MIT — voir [LICENSE](LICENSE)

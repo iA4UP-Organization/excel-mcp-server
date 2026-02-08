@@ -17,6 +17,8 @@
 | **Repo source (upstream)** | https://github.com/haris-musa/excel-mcp-server |
 | **Ancien repo (inactif)** | https://github.com/iA4UP-Organization/excel-mcp |
 | **Organisation GitHub** | `iA4UP-Organization` |
+| **Clone local (WSL)** | `/home/depre/workspace/excel-mcp-server` |
+| **Clone local (Windows)** | `\\wsl$\Ubuntu\home\depre\workspace\excel-mcp-server` |
 
 ---
 
@@ -138,21 +140,34 @@ Fonctions bloquées : `CALL`, `REGISTER`, `REGISTER.ID`, `EXEC`, `INDIRECT`, `HY
 
 ## 🔧 Configuration
 
-### Claude Desktop (Local — stdio)
+### Installation locale (WSL Ubuntu)
+
+```bash
+cd /home/depre/workspace/excel-mcp-server
+pip3 install -e . --break-system-packages
+export PATH="$HOME/.local/bin:$PATH"  # ajouté dans ~/.bashrc
+```
+
+### Claude Desktop (Windows — via WSL stdio)
+
+Fichier : `%APPDATA%\Claude\claude_desktop_config.json`
 
 ```json
 {
   "mcpServers": {
     "excel": {
-      "command": "uvx",
-      "args": ["excel-mcp-server", "stdio"],
-      "env": {
-        "ALLOWED_PATHS": "G:/Mon Drive/iA4UP,G:/Mon Drive/Savpro"
-      }
+      "command": "wsl",
+      "args": [
+        "bash", "-lc", "ALLOWED_PATHS='/home/depre/workspace/excel-mcp-server' excel-mcp-server stdio"
+      ]
     }
   }
 }
 ```
+
+**Note** : Adapter `ALLOWED_PATHS` pour pointer vers les vrais dossiers de travail en production :
+- `/mnt/g/Mon Drive/iA4UP` pour les fichiers iA4UP
+- `/mnt/g/Mon Drive/Savpro` pour les fichiers Savpro
 
 ### N8N sur VPS Hostinger (SSE ou HTTP)
 
@@ -217,12 +232,17 @@ dependencies = [
 - [x] Suppression assets/logo.png et logo.svg (logos auteur)
 - [x] Réécriture README.md (version iA4UP)
 
-### Phase 2 : Tests ⏳ À FAIRE
-- [ ] Installer en local avec `pip install -e .` ou `uvx`
-- [ ] Tester avec Claude Desktop (mode stdio)
-- [ ] Valider les 25 outils
-- [ ] Tests sécurité : path traversal, extension, formules bloquées
-- [ ] Tester les 3 modes de transport (stdio, SSE, HTTP)
+### Phase 2 : Installation & Tests 🔄 EN COURS
+- [x] Cloner le repo en local (`/home/depre/workspace/excel-mcp-server`)
+- [x] Installer pip3 sur WSL Ubuntu
+- [x] Installer avec `pip3 install -e . --break-system-packages`
+- [x] Ajouter `~/.local/bin` au PATH (`.bashrc`)
+- [x] Vérifier `excel-mcp-server --help` — 3 modes confirmés (stdio, sse, streamable-http)
+- [x] Tester lancement `ALLOWED_PATHS=... excel-mcp-server stdio` — OK, pas d'erreur
+- [ ] Configurer Claude Desktop (`claude_desktop_config.json` via WSL)
+- [ ] Tester connexion Claude Desktop ↔ serveur Excel MCP
+- [ ] Valider les 25 outils (créer workbook, lire/écrire données, formules, charts...)
+- [ ] Tests sécurité : path traversal bloqué, extension .xlsx obligatoire, formules dangereuses bloquées
 
 ### Phase 3 : Dockerisation & Déploiement ⏳ À FAIRE
 - [ ] Dockerfile + docker-compose.yml
@@ -242,6 +262,8 @@ dependencies = [
 | 08/02/2025 | Greffe sécurité : config.py + sandbox.py + server.py + validation.py |
 | 08/02/2025 | Création CLAUDE.md — **Phase 1 terminée** |
 | 08/02/2025 | Nettoyage cosmétique : docs/, assets/, README.md réécrit — **Phase 1b terminée** |
+| 08/02/2025 | Clone local WSL + pip3 install + PATH configuré — **Phase 2 démarrée** |
+| 08/02/2025 | Serveur testé en stdio — configuration Claude Desktop en cours |
 
 ---
 

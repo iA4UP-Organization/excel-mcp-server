@@ -15,7 +15,7 @@
 | **Copie locale (briefing)** | `G:\Mon Drive\iA4UP\Claude\MCP-Custom\Excel\CLAUDE.md` |
 | **Repo GitHub** | https://github.com/iA4UP-Organization/excel-mcp-server |
 | **Repo source (upstream)** | https://github.com/haris-musa/excel-mcp-server |
-| **Ancien repo (archivé)** | https://github.com/iA4UP-Organization/excel-mcp |
+| **Ancien repo (inactif)** | https://github.com/iA4UP-Organization/excel-mcp |
 | **Organisation GitHub** | `iA4UP-Organization` |
 
 ---
@@ -49,6 +49,11 @@
 - ~~`icon.png`~~ → icône marketplace
 - ~~`.github/workflows/publish.yml`~~ → workflow PyPI (compte auteur)
 - ~~`TOOLS.md`~~ → doc auteur (documenté ici dans CLAUDE.md)
+- ~~`docs/CNAME`~~ → domaine auteur (excelmcpserver.com)
+- ~~`docs/index.html`~~ → landing page auteur
+- ~~`assets/logo.png`~~ → logo auteur
+- ~~`assets/logo.svg`~~ → logo auteur
+- ~~`README.md` original~~ → réécrit version iA4UP
 
 ### Ce qu'on a ajouté 🛡️
 
@@ -56,6 +61,8 @@
 - `sandbox.py` : Validation anti path-traversal, extension .xlsx, liens symboliques
 - `server.py` modifié : Sandbox intégré dans `get_excel_path()` (point central, 25 outils protégés)
 - `validation.py` modifié : Formules dangereuses étendues (CALL, REGISTER, EXEC, FILTERXML, REGISTER.ID)
+- `README.md` réécrit : Documentation iA4UP avec sécurité documentée
+- `CLAUDE.md` : Ce fichier — documentation technique complète
 
 ---
 
@@ -63,32 +70,32 @@
 
 ```
 iA4UP-Organization/excel-mcp-server (GitHub)
-├── .github/                   # (workflows supprimés)
-├── assets/                    # Assets du repo original
-├── docs/                      # Docs du repo original
-├── src/
-│   └── excel_mcp/
-│       ├── __main__.py        # CLI Typer (stdio/sse/http)
-│       ├── server.py          # ✅ Serveur MCP — sandbox intégré dans get_excel_path()
-│       ├── config.py          # ✅ AJOUTÉ — Configuration ALLOWED_PATHS
-│       ├── sandbox.py         # ✅ AJOUTÉ — Anti path-traversal, .xlsx only
-│       ├── validation.py      # ✅ MODIFIÉ — Formules dangereuses étendues
-│       ├── cell_validation.py # Data validation Excel (dropdown, etc.)
-│       ├── cell_utils.py      # Utilitaires cellules
-│       ├── calculations.py    # Application de formules
-│       ├── chart.py           # Création de graphiques
-│       ├── data.py            # Lecture/écriture données
-│       ├── formatting.py      # Mise en forme (conditionnel inclus)
-│       ├── pivot.py           # Tableaux croisés dynamiques
-│       ├── sheet.py           # Opérations feuilles (copy, delete, merge...)
-│       ├── tables.py          # Tables Excel natives
-│       ├── workbook.py        # Opérations workbook
-│       └── exceptions.py      # Hiérarchie d'exceptions
+├── .gitignore
+├── .python-version
+├── CLAUDE.md                  # ✅ CE FICHIER (iA4UP)
+├── LICENSE                    # MIT
+├── README.md                  # ✅ Réécrit iA4UP
 ├── pyproject.toml             # Config build (hatchling)
 ├── uv.lock                    # Lock file
-├── CLAUDE.md                  # ✅ CE FICHIER (iA4UP)
-├── README.md                  # README original (à réécrire)
-└── LICENSE                    # MIT
+└── src/
+    └── excel_mcp/
+        ├── __init__.py        # Package init
+        ├── __main__.py        # CLI Typer (stdio/sse/http)
+        ├── server.py          # ✅ Serveur MCP — sandbox intégré dans get_excel_path()
+        ├── config.py          # ✅ AJOUTÉ — Configuration ALLOWED_PATHS
+        ├── sandbox.py         # ✅ AJOUTÉ — Anti path-traversal, .xlsx only
+        ├── validation.py      # ✅ MODIFIÉ — Formules dangereuses étendues
+        ├── cell_validation.py # Data validation Excel (dropdown, etc.)
+        ├── cell_utils.py      # Utilitaires cellules
+        ├── calculations.py    # Application de formules
+        ├── chart.py           # Création de graphiques
+        ├── data.py            # Lecture/écriture données
+        ├── formatting.py      # Mise en forme (conditionnel inclus)
+        ├── pivot.py           # Tableaux croisés dynamiques
+        ├── sheet.py           # Opérations feuilles (copy, delete, merge...)
+        ├── tables.py          # Tables Excel natives
+        ├── workbook.py        # Opérations workbook
+        └── exceptions.py      # Hiérarchie d'exceptions
 ```
 
 ---
@@ -116,14 +123,14 @@ Fonctions bloquées : `CALL`, `REGISTER`, `REGISTER.ID`, `EXEC`, `INDIRECT`, `HY
 | Catégorie | Outils |
 |-----------|--------|
 | **Workbook** (2) | create_workbook, get_workbook_metadata |
-| **Worksheet** (3) | create_worksheet, copy_worksheet, delete_worksheet, rename_worksheet |
+| **Worksheet** (4) | create_worksheet, copy_worksheet, delete_worksheet, rename_worksheet |
 | **Data** (2) | read_data_from_excel, write_data_to_excel |
 | **Formulas** (2) | apply_formula, validate_formula_syntax |
 | **Formatting** (1) | format_range (inclut conditional formatting) |
 | **Charts** (1) | create_chart (line, bar, pie, scatter, area, radar, doughnut) |
 | **Pivot Tables** (1) | create_pivot_table |
 | **Tables** (1) | create_table |
-| **Cell Operations** (4) | merge_cells, unmerge_cells, get_merged_cells, copy_range, delete_range |
+| **Cell Operations** (5) | merge_cells, unmerge_cells, get_merged_cells, copy_range, delete_range |
 | **Rows/Cols** (4) | insert_rows, insert_columns, delete_sheet_rows, delete_sheet_columns |
 | **Validation** (2) | validate_excel_range, get_data_validation_info |
 
@@ -204,6 +211,12 @@ dependencies = [
 - [x] Modification validation.py (formules dangereuses étendues)
 - [x] Création CLAUDE.md iA4UP
 
+### Phase 1b : Nettoyage cosmétique ✅ TERMINÉE
+- [x] Suppression docs/CNAME (domaine auteur excelmcpserver.com)
+- [x] Suppression docs/index.html (landing page auteur)
+- [x] Suppression assets/logo.png et logo.svg (logos auteur)
+- [x] Réécriture README.md (version iA4UP)
+
 ### Phase 2 : Tests ⏳ À FAIRE
 - [ ] Installer en local avec `pip install -e .` ou `uvx`
 - [ ] Tester avec Claude Desktop (mode stdio)
@@ -215,10 +228,6 @@ dependencies = [
 - [ ] Dockerfile + docker-compose.yml
 - [ ] Tester sur VPS Hostinger + intégrer N8N
 - [ ] Tests end-to-end
-
-### Phase 4 : Nettoyage cosmétique ⏳ À FAIRE
-- [ ] Réécrire README.md (encore celui de haris-musa)
-- [ ] Archiver l'ancien repo excel-mcp (mort-lab)
 
 ---
 
@@ -232,6 +241,7 @@ dependencies = [
 | 08/02/2025 | Nettoyage marketplace (manifest, mcpb, icon, workflow PyPI, TOOLS.md) |
 | 08/02/2025 | Greffe sécurité : config.py + sandbox.py + server.py + validation.py |
 | 08/02/2025 | Création CLAUDE.md — **Phase 1 terminée** |
+| 08/02/2025 | Nettoyage cosmétique : docs/, assets/, README.md réécrit — **Phase 1b terminée** |
 
 ---
 

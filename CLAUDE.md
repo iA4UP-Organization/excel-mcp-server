@@ -186,7 +186,7 @@ Fichier : `%APPDATA%\Claude\claude_desktop_config.json`
 Le serveur excel apparaît comme connecteur activable dans claude.ai grâce à Claude Desktop.
 25 outils disponibles directement dans l'interface web.
 
-### N8N sur VPS Hostinger (SSE ou HTTP)
+### N8N sur VPS Hostinger (SSE ou HTTP) — Phase 3
 
 ```yaml
 services:
@@ -227,6 +227,7 @@ dependencies = [
 1. **Analyse outil cotation BESS** (Savpro) — charts + formules
 2. **Base prospection éolien** (Savpro) — pivot tables + filtres
 3. **Rapports automatisés** (iA4UP/Savpro via N8N) — formatting conditionnel
+4. **Modification Excel en direct en réunion** (Phase 4) — Excel Online via Microsoft Graph API
 
 ---
 
@@ -266,10 +267,42 @@ dependencies = [
 - [x] Test sécurité extension .csv — BLOQUÉ ✅
 - [x] Test sécurité formule CALL — BLOQUÉ ✅
 
-### Phase 3 : Dockerisation & Déploiement ⏳ À FAIRE
+### Phase 3 : Dockerisation & Déploiement N8N 📋 REPORTÉE
+> Reportée — à faire quand des workflows N8N nécessiteront la manipulation de fichiers Excel sur le VPS.
 - [ ] Dockerfile + docker-compose.yml
 - [ ] Tester sur VPS Hostinger + intégrer N8N
 - [ ] Tests end-to-end
+- [ ] Cas d'usage : génération automatique de rapports Excel via webhook N8N
+
+### Phase 4 : Excel Online — Modification en direct 🔄 EN COURS
+> Objectif : modifier des fichiers Excel en temps réel via Microsoft Graph API, visibles instantanément par tous les participants (réunion, collaboration).
+> Pourquoi : openpyxl modifie des fichiers .xlsx hors-ligne. Excel verrouille le fichier ouvert. Aucune mise à jour live possible. Excel Online fonctionne comme Notion/Airtable — le fichier est sur OneDrive/SharePoint, l'API modifie la base, le navigateur affiche les changements en temps réel.
+
+**Approche technique :**
+- API : Microsoft Graph API (`/me/drive/items/{id}/workbook/...`)
+- Auth : OAuth2 avec Azure AD App Registration
+- Transport : HTTP (compatible VPS, Docker, WSL, partout)
+- Pré-requis : compte Microsoft 365 (iA4UP ou Savpro)
+
+**Avantages vs openpyxl :**
+- ✅ Modifications visibles en temps réel dans Excel Online
+- ✅ Collaboration multi-utilisateurs (tous voient les changements)
+- ✅ Fonctionne depuis n'importe où (pas limité à Windows local)
+- ✅ Cas d'usage réunion : "Claude, ajoute un scénario" → visible instantanément
+
+**Limitations connues :**
+- ❌ Nécessite une connexion internet
+- ❌ OAuth2 plus complexe à configurer que openpyxl
+- ❌ Pas de charts via Graph API (limité lecture/écriture cellules, formules, formatage)
+- ❌ Dépendance Microsoft cloud
+
+**Étapes :**
+- [ ] Recherche : audit API Microsoft Graph pour Excel Online (endpoints, limites, quotas)
+- [ ] Azure AD : créer App Registration + permissions Graph API
+- [ ] Développer serveur MCP "excel-online" (nouveau repo ou module dans ce repo)
+- [ ] Implémenter outils : read, write, formula, format via Graph API
+- [ ] Tests avec fichier Excel sur OneDrive — modification live confirmée
+- [ ] Intégrer dans Claude Desktop + claude.ai
 
 ---
 
@@ -286,6 +319,7 @@ dependencies = [
 | 08/02/2025 | Nettoyage cosmétique : docs/, assets/, README.md réécrit — **Phase 1b terminée** |
 | 08/02/2025 | Clone local WSL + pip3 install + PATH configuré |
 | 08/02/2025 | Serveur testé stdio + connecté Claude Desktop + tests sécurité 7/7 — **Phase 2 terminée** |
+| 08/02/2025 | Phase 3 Docker reportée — Phase 4 Excel Online priorisée |
 
 ---
 
